@@ -160,6 +160,33 @@ static char* syscalls_str[] = {
 [SYS_sysinfo]   "sysinfo",
 };
 
+// 系统调用参数个数表
+static int syscall_arg_num[] = {
+[SYS_fork]    0,
+[SYS_exit]    1,
+[SYS_wait]    1,
+[SYS_pipe]    1,
+[SYS_read]    3,
+[SYS_kill]    1,
+[SYS_exec]    2,
+[SYS_fstat]   2,
+[SYS_chdir]   1,
+[SYS_dup]     1,
+[SYS_getpid]  0,
+[SYS_sbrk]    1,
+[SYS_sleep]   1,
+[SYS_uptime]  0,
+[SYS_open]    2,
+[SYS_write]   3,
+[SYS_mknod]   2,
+[SYS_unlink]  1,
+[SYS_link]    2,
+[SYS_mkdir]   1,
+[SYS_close]   1,
+[SYS_trace]   1,
+[SYS_sysinfo]   1,
+};
+
 
 void
 syscall(void)
@@ -169,12 +196,28 @@ syscall(void)
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    // 打印参数，如果调用之后再打印，寄存器里的值不一定是参数
+    int args[syscall_arg_num[num]];
+    if ((p->trace_mask >> num) & 1) {
+      for(int i = 0; i < NELEM(args); i++) {
+        args[i] = argraw(i);
+      }
+    }
     p->trapframe->a0 = syscalls[num]();
     // 看是否是mask中的syscall，是则打印
     // 1. 计算mask中的第num位是否为1，为1则trace
     if ((p->trace_mask >> num) & 1) {
-      // 2. 获取pid，syscall string，return value
-      printf("%d: syscall %s -> %d\n", p->pid, syscalls_str[num], p->trapframe->a0);
+      // 2. 获取pid，syscall string，return value, arguments
+      printf("%d: syscall %s(", p->pid, syscalls_str[num]);
+      for(int i = 0; i < NELEM(args); i++) {
+        if (i == NELEM(args) - 1) {
+          printf("%d", args[i]);
+          break;
+        }
+        printf("%d, ", args[i]);
+      }
+      printf(") -> %d\n", p->trapframe->a0);
+      // printf("%d: syscall %s -> %d\n", p->pid, syscalls_str[num], p->trapframe->a0);
     }
     
   } else {
