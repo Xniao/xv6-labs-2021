@@ -100,6 +100,8 @@ extern uint64 sys_pipe(void);
 extern uint64 sys_read(void);
 extern uint64 sys_sbrk(void);
 extern uint64 sys_sleep(void);
+extern uint64 sys_sysinfo(void);
+extern uint64 sys_trace(void);
 extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
@@ -127,7 +129,37 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
+[SYS_trace]   sys_trace,
+[SYS_sysinfo]   sys_sysinfo,
 };
+
+// 系统调用的字符串
+static char* syscalls_str[] = {
+[SYS_fork]    "fork",
+[SYS_exit]    "exit",
+[SYS_wait]    "wait",
+[SYS_pipe]    "pipe",
+[SYS_read]    "read",
+[SYS_kill]    "kill",
+[SYS_exec]    "exec",
+[SYS_fstat]   "fstat",
+[SYS_chdir]   "chdir",
+[SYS_dup]     "dup",
+[SYS_getpid]  "getpid",
+[SYS_sbrk]    "sbrk",
+[SYS_sleep]   "sleep",
+[SYS_uptime]  "uptime",
+[SYS_open]    "open",
+[SYS_write]   "write",
+[SYS_mknod]   "mknod",
+[SYS_unlink]  "unlink",
+[SYS_link]    "link",
+[SYS_mkdir]   "mkdir",
+[SYS_close]   "close",
+[SYS_trace]   "trace",
+[SYS_sysinfo]   "sysinfo",
+};
+
 
 void
 syscall(void)
@@ -138,6 +170,13 @@ syscall(void)
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     p->trapframe->a0 = syscalls[num]();
+    // 看是否是mask中的syscall，是则打印
+    // 1. 计算mask中的第num位是否为1，为1则trace
+    if ((p->tracemask >> num) & 1) {
+      // 2. 获取pid，syscall string，return value
+      printf("%d: syscall %s -> %d\n", p->pid, syscalls_str[num], p->trapframe->a0);
+    }
+    
   } else {
     printf("%d %s: unknown sys call %d\n",
             p->pid, p->name, num);

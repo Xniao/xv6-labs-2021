@@ -6,7 +6,7 @@
 #include "memlayout.h"
 #include "spinlock.h"
 #include "proc.h"
-
+// 系统调用的接口
 uint64
 sys_exit(void)
 {
@@ -94,4 +94,28 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+// My first system call
+uint64
+sys_trace(void)
+{
+  // 要trace一个process，可以把mask传给process结构体里的成员，
+  // 每次调用时看是否是trace的system call，如果是则打印
+  if(argint(0, &(myproc()->tracemask)) < 0)
+    return -1;
+  return 0; 
+}
+
+// My second system call
+uint64
+sys_sysinfo(void)
+{
+  // arugument is a pointer
+  uint64 si; // user pointer to struct sysinfo
+  if(argaddr(0, &si) < 0) 
+    return -1;
+  // printf("Address is %d\n", si);
+  // 把sysinfo指针传给内核中的处理函数，在其中用copyout复制到user space
+  return get_sysinfo(si); 
 }

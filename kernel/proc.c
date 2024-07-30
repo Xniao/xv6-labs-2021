@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "sysinfo.h"
 
 struct cpu cpus[NCPU];
 
@@ -280,6 +281,9 @@ fork(void)
   if((np = allocproc()) == 0){
     return -1;
   }
+
+  // Copy trace mask to child. 
+  np->tracemask = p->tracemask;
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -653,4 +657,35 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// 获取目前状态非UNUSED的process个数
+int
+get_procnum(void)
+{
+  struct proc *p;
+  int procnum = 0;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state != UNUSED) {
+      procnum++;
+    }
+    release(&p->lock);
+  }
+  return procnum;
+}
+
+
+// store sysinfo in the addr, including free memory and number of processes
+int
+get_sysinfo(uint64 addr) {
+  struct sysinfo info;
+  info.freemem = get_freemem();
+  info.nproc = get_procnum();
+  // printf("free memory: %d B, processer number: %d\n", info.freemem, info.nproc);
+  // 复制到user space
+  if(copyout(myproc()->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+    return -1;
+  return 0;
 }

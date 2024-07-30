@@ -20,6 +20,7 @@ struct run {
 
 struct {
   struct spinlock lock;
+  // 空闲的内存page，一个page=4096B=4K
   struct run *freelist;
 } kmem;
 
@@ -47,7 +48,7 @@ void
 kfree(void *pa)
 {
   struct run *r;
-
+  // 如果不是有效地址或非内核空间则panic
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
@@ -79,4 +80,23 @@ kalloc(void)
   if(r)
     memset((char*)r, 5, PGSIZE); // fill with junk
   return (void*)r;
+}
+
+// 获取当前的free memory，以Byte为单位
+int
+get_freemem(void)
+{
+  struct run *r;
+  int freepages = 0;
+
+  acquire(&kmem.lock);
+  // 计算有多少个page在freelist中
+  r = kmem.freelist;
+  while(r) {
+    freepages++;
+    r = r->next;
+  }
+  release(&kmem.lock);
+
+  return freepages * PGSIZE;
 }
