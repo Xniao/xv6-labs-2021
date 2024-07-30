@@ -5,7 +5,7 @@
             "label": "xv6build",
             "type": "shell",
             "isBackground": true,
-            "command": "make qemu-gdb",
+            "command": "make CPUS=1 qemu-gdb",
             "problemMatcher": [
                 {
                     "pattern": [
