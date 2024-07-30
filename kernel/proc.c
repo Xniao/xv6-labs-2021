@@ -283,7 +283,7 @@ fork(void)
   }
 
   // Copy trace mask to child. 
-  np->tracemask = p->tracemask;
+  np->trace_mask = p->trace_mask;
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -668,9 +668,8 @@ get_procnum(void)
 
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
-    if(p->state != UNUSED) {
+    if(p->state != UNUSED) 
       procnum++;
-    }
     release(&p->lock);
   }
   return procnum;

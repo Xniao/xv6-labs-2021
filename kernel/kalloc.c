@@ -87,16 +87,16 @@ int
 get_freemem(void)
 {
   struct run *r;
-  int freepages = 0;
+  int freebytes = 0;
 
   acquire(&kmem.lock);
-  // 计算有多少个page在freelist中
   r = kmem.freelist;
+  // 计算空页的大小
   while(r) {
-    freepages++;
+    freebytes += PGSIZE;
     r = r->next;
   }
   release(&kmem.lock);
 
-  return freepages * PGSIZE;
+  return freebytes;
 }

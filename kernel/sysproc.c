@@ -102,7 +102,7 @@ sys_trace(void)
 {
   // 要trace一个process，可以把mask传给process结构体里的成员，
   // 每次调用时看是否是trace的system call，如果是则打印
-  if(argint(0, &(myproc()->tracemask)) < 0)
+  if(argint(0, &(myproc()->trace_mask)) < 0)
     return -1;
   return 0; 
 }

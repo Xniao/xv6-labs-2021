@@ -172,7 +172,7 @@ syscall(void)
     p->trapframe->a0 = syscalls[num]();
     // 看是否是mask中的syscall，是则打印
     // 1. 计算mask中的第num位是否为1，为1则trace
-    if ((p->tracemask >> num) & 1) {
+    if ((p->trace_mask >> num) & 1) {
       // 2. 获取pid，syscall string，return value
       printf("%d: syscall %s -> %d\n", p->pid, syscalls_str[num], p->trapframe->a0);
     }
