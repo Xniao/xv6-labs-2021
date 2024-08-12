@@ -9,7 +9,7 @@
 /*
  * the kernel's page table.
  */
-pagetable_t kernel_pagetable;
+pagetable_t kernel_pagetable; // 所有进程共享
 
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
@@ -82,18 +82,23 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if(va >= MAXVA)
     panic("walk");
-
+  // 从最上层的页表开始遍历，不遍历最后一张页表
   for(int level = 2; level > 0; level--) {
+    // 使用宏获取目前va在当前页表的项
     pte_t *pte = &pagetable[PX(level, va)];
+    // 是有效的页表项
     if(*pte & PTE_V) {
+      // 取出下一个页表物理地址
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
+      // 如果不是有效页表，则根据参数选择是否分配新页表
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
+  // 返回最后一级页表中对应的物理地址
   return &pagetable[PX(0, va)];
 }
 

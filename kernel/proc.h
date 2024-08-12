@@ -105,4 +105,6 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+
+  struct usyscall *usyscall;   // User syscall pointer, store physical address of this page
 };
