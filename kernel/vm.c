@@ -437,3 +437,39 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return -1;
   }
 }
+
+// 根据给定的级数打印页表项，2级->1级->0级
+void
+print_pagetable(pagetable_t pagetable, int level) {
+  // 只打印0-2级页表
+  if (level < 0) return;
+  int ident = 2 - level + 1; // 多少个 .. 作为缩进
+  for (int i = 0; i < 512; i++) {
+    pte_t pte = pagetable[i];
+    // 无效的页表项，跳过
+    if ((pte & PTE_V) == 0) continue;
+    // 打印当前页表项
+    pagetable_t pa = (pagetable_t)(PTE2PA(pte)); // 指向的物理地址
+    // 打印缩进，注意空格
+    for(int j = 0; j < ident; j++) {
+      if (j == 0) {
+        printf("..");
+      }else {
+        printf(" ..");
+      }
+    }
+    // 打印pte和pa
+    printf("%d: pte %p pa %p\n", i, pte, pa);
+    // 对子项进行打印
+    print_pagetable(pa, level-1);
+  }
+}
+
+// Print a pagetable using specific format
+void
+vmprint(pagetable_t pagetable) {
+  // 1. 首先打印pagetable的物理地址也就是参入参数
+  printf("page table %p\n", pagetable);
+  // 递归打印每个页表项
+  print_pagetable(pagetable, 2);
+}
