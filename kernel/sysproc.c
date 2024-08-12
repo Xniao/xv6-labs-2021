@@ -77,10 +77,41 @@ sys_sleep(void)
 
 
 #ifdef LAB_PGTBL
+// sys_pgaccess actual function
 int
 sys_pgaccess(void)
 {
   // lab pgtbl: your code here.
+  uint64 va, addr; // start va and bitmask address
+  int page_nums;      // number of pages to check
+
+  if(argaddr(0, &va) < 0 || argint(1, &page_nums) < 0 || argaddr(2, &addr) < 0)
+    return -1;
+  // 最多只能查找64个页
+  if (page_nums > 64) 
+    return -1;
+
+  uint64 bitmask = 0x0;
+  pagetable_t pagetable = myproc()->pagetable;
+  for (int i = 0; i < page_nums; i++, va += PGSIZE) {
+    if (va > MAXVA) 
+      return -1;
+    
+    pte_t *p = walk(pagetable, va, 0);
+    // 页表项不存在，触发page_fault
+    if (!p)
+      return -1;
+    // 页表项存在，同时Access标志位位1
+    if (*p & PTE_A) {
+      // 给掩码的第i位设置为1
+      bitmask |= (1 << i);
+      // 重置PTE_A标志位
+      *p &= ~PTE_A;
+    }
+  }
+  // 将bitmask拷贝回用户空间
+  if (copyout(pagetable, addr, (char *)&bitmask, sizeof(bitmask)) < 0) 
+    return -1;
   return 0;
 }
 #endif

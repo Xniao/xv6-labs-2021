@@ -98,7 +98,7 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
-  // 返回最后一级页表中对应的物理地址
+  // 返回最后一级页表中的页表项PTE
   return &pagetable[PX(0, va)];
 }
 
@@ -151,10 +151,13 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   a = PGROUNDDOWN(va);
   last = PGROUNDDOWN(va + size - 1);
   for(;;){
+    // 无法分配页表项
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
+    // 该页表项已经存在
     if(*pte & PTE_V)
       panic("mappages: remap");
+    // 将物理地址转为页表项并加上标志位
     *pte = PA2PTE(pa) | perm | PTE_V;
     if(a == last)
       break;
