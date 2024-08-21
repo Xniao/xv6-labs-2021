@@ -78,8 +78,21 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2) {
+    // 定时器中断，更新
+    if (p->interval != 0) {
+      p->ticks++;
+      if (!p->handler_state && p->ticks >= p->interval) {
+        p->ticks = 0;
+        // 保存一个trapframe的备份
+        *p->backupframe = *p->trapframe;
+        // 将handler状态设置为运行中
+        p->handler_state = 1;
+        p->trapframe->epc = (uint64)p->handler;
+      }
+    }
     yield();
+  }
 
   usertrapret();
 }

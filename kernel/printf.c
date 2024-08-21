@@ -151,6 +151,7 @@ backtrace()
   {
     // 从基地址-8处读取return address
     uint64 ra;
+    // TODO: 可以改写成prev_fp[-1]尝试一下
     asm volatile("ld %0, -8(%1)" : "=r" (ra) : "r" (prev_fp));
     // 打印目前栈帧的return address
     // printf("%p\n", ra);

@@ -127,6 +127,13 @@ found:
     return 0;
   }
 
+  // Allocate a backup trapframe page.
+  if((p->backupframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -134,6 +141,13 @@ found:
     release(&p->lock);
     return 0;
   }
+
+  // 初始化alarm feature要用到的一些field
+  // 使用interval来确定alarm是否开启
+  p->interval = 0;
+  p->handler = 0;
+  p->ticks = 0;   // 只有开启了alarm才会对timer计数
+  p->handler_state = 0; // 一开始未调用handler
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
@@ -153,6 +167,9 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
+  if(p->backupframe)
+    kfree((void*)p->backupframe);
+  p->backupframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
   p->pagetable = 0;
