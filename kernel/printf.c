@@ -139,28 +139,22 @@ backtrace()
 {
   // 获取当前栈帧的基地址，换句话说也就是下一个栈帧的栈指针
   // 这里类似链表的dummy头结点，方便操作
-  uint64 prev_fp = r_fp();
+  uint64 *prev_fp = (uint64 *)r_fp();
   // Get process stack top
-  uint64 stack_top = PGROUNDUP(prev_fp);
-  uint64 stack_bottom = PGROUNDDOWN(prev_fp);
+  uint64 *stack_top = (uint64 *)PGROUNDUP((uint64)prev_fp);
+  uint64 *stack_bottom = (uint64 *)PGROUNDDOWN((uint64)prev_fp);
   // 当前栈帧的栈指针，指向上一个栈帧基地址
-  uint64 curr_fp;
-  asm volatile("ld %0, -16(%1)" : "=r" (curr_fp) : "r" (prev_fp));
+  uint64 *curr_fp = (uint64 *)prev_fp[-2];
   // 判断目前的栈指针指向的地址是否位于内核空间，如果不是不要打印目前栈帧的返回地址
   while (curr_fp >= stack_bottom && curr_fp <= stack_top)
   {
     // 从基地址-8处读取return address
-    uint64 ra;
-    // TODO: 可以改写成prev_fp[-1]尝试一下
-    asm volatile("ld %0, -8(%1)" : "=r" (ra) : "r" (prev_fp));
-    // 打印目前栈帧的return address
-    // printf("%p\n", ra);
+    uint64 ra = prev_fp[-1];
     // 打印调用的入口地址，因为risc v的指令是定长的4字节，所以-4可以获取上一条指令的地址。
     printf("%p\n", ra-4);
 
     // 更新栈指针，类似于双指针思路
     prev_fp = curr_fp;
-    asm volatile("ld %0, -16(%1)" : "=r" (curr_fp) : "r" (prev_fp));
+    curr_fp = (uint64 *)prev_fp[-2];
   }
-  
 }
