@@ -73,6 +73,7 @@ uservec:
         # load the address of usertrap(), p->trapframe->kernel_trap
         ld t0, 16(a0)
 
+        # 切换至内核页表，这些数据都是上一次trap时保存好的
         # restore kernel page table from p->trapframe->kernel_satp
         ld t1, 0(a0)
         csrw satp, t1
@@ -96,6 +97,8 @@ userret:
         csrw satp, a1
         sfence.vma zero, zero
 
+        # 系统调用时已经把返回值存到trapframe里的a0
+        # 不过此时的a0寄存器是第一个参数的值，因此要通过112(a0)去获取trapframe里的a0返回值
         # put the saved user a0 in sscratch, so we
         # can swap it with our a0 (TRAPFRAME) in the last step.
         ld t0, 112(a0)
@@ -133,6 +136,7 @@ userret:
         ld t5, 272(a0)
         ld t6, 280(a0)
 
+        # 把返回值从sccratch拷贝到a0寄存器，作为返回值
 	# restore user a0, and save TRAPFRAME in sscratch
         csrrw a0, sscratch, a0
         

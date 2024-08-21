@@ -41,6 +41,7 @@ usertrap(void)
   if((r_sstatus() & SSTATUS_SPP) != 0)
     panic("usertrap: not from user mode");
 
+  // 因为在内核空间，所以是内核trap不能使用用户的trap处理地址
   // send interrupts and exceptions to kerneltrap(),
   // since we're now in the kernel.
   w_stvec((uint64)kernelvec);
@@ -96,6 +97,7 @@ usertrapret(void)
   // we're back in user space, where usertrap() is correct.
   intr_off();
 
+  // trampoline也是一个符号，但是和uservec相差4个地址，相减之后可以得到实际地址
   // send syscalls, interrupts, and exceptions to trampoline.S
   w_stvec(TRAMPOLINE + (uservec - trampoline));
 
@@ -142,7 +144,7 @@ kerneltrap()
     panic("kerneltrap: not from supervisor mode");
   if(intr_get() != 0)
     panic("kerneltrap: interrupts enabled");
-
+  // 异常 终止运行
   if((which_dev = devintr()) == 0){
     printf("scause %p\n", scause);
     printf("sepc=%p stval=%p\n", r_sepc(), r_stval());

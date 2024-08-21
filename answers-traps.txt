@@ -1,0 +1,14 @@
+a0-a7
+
+at address 26, but compiler inline the function and optimize the constant value, so the function call is evaluate to 12.
+
+printf function at 0x628 addresss
+
+ra(return address) is 38
+
+0x00646c72 at little endian is 0x726c6400, so the string is "rld\0"
+57616 to hex is 0xe110
+so printf("H%x Wo%s", 57616, &i); will output "He110 World"
+if using big-endian, we need change int i = 0x726c6400, but don't have to change the 57616.
+
+the second %d will continue read the stack, so we don't know what it will print. It's an undefined behavior.
