@@ -303,7 +303,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -311,14 +310,16 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
     pa = PTE2PA(*pte);
+    if (*pte & PTE_W) {
+      // 父进程可写的页才需要COW
+      *pte = ((*pte | PTE_C) & ~PTE_W);
+    }
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+    if (mappages(new, i, PGSIZE, pa, flags) != 0) {
+      panic("uvmcopy: can not map");
       goto err;
     }
+    inc_ref_array(pa);
   }
   return 0;
 
@@ -353,6 +354,11 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     pa0 = walkaddr(pagetable, va0);
     if(pa0 == 0)
       return -1;
+    if (is_uncopied_va(pagetable, va0)) {
+      if (copy_page(pagetable, va0) != 0) 
+        return -1;
+      pa0 = walkaddr(pagetable, va0);
+    }
     n = PGSIZE - (dstva - va0);
     if(n > len)
       n = len;
@@ -430,5 +436,51 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
     return 0;
   } else {
     return -1;
+  }
+}
+
+// 判断某个PTE是否指向可用的COW页, 1代表是
+int
+is_uncopied_page(pte_t *pte)
+{
+  if ((*pte & PTE_V) == 0)
+    return 0;
+  if ((*pte & PTE_U) == 0)
+      return 0;
+  return (*pte & PTE_C);
+}
+
+// 判断某个VA是否指向可用的COW页, 非0代表是
+int
+is_uncopied_va(pagetable_t pgtbl, uint64 va)
+{
+  if (va < 0 || va >= MAXVA)
+    return 0;
+  va = PGROUNDDOWN(va);
+  pte_t *pte;
+  if((pte = walk(pgtbl, va, 0)) == 0)
+      panic("is_uncopied_va: pte should exist");
+  return is_uncopied_page(pte);
+}
+
+// 分配一个新内存，并创建新映射，返回0说明成功
+int
+copy_page(pagetable_t pgtbl, uint64 va)
+{
+  pte_t* pte = walk(pgtbl, va, 0);
+  char *mem;
+  if ((mem = kalloc()) == 0) {
+    return -1;
+  }
+  else {
+    uint64 pa = walkaddr(pgtbl, va);
+    uint flag = PTE_FLAGS(((*pte | PTE_W) & ~PTE_C));
+    memmove(mem, (char *)pa, PGSIZE);
+    uvmunmap(pgtbl, va, 1, 1);
+    if (mappages(pgtbl, va, PGSIZE, (uint64)mem, flag) != 0) {
+      kfree(mem);
+      panic("copy page: can not map");
+    }
+    return 0;
   }
 }

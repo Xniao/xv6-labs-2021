@@ -47,6 +47,11 @@
 #define KERNBASE 0x80000000L
 #define PHYSTOP (KERNBASE + 128*1024*1024)
 
+// 引用数量数组长度
+#define REF_ARR_SIZE ((PHYSTOP-KERNBASE) >> 12)
+// 获取指定PA对应page在引用数组中的索引
+#define PA2REF_ARR_INDEX(pa) ((PGROUNDDOWN(pa)-KERNBASE) >> 12)
+
 // map the trampoline page to the highest address,
 // in both user and kernel space.
 #define TRAMPOLINE (MAXVA - PGSIZE)

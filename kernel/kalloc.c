@@ -23,10 +23,28 @@ struct {
   struct run *freelist;
 } kmem;
 
+struct {
+  struct spinlock lock;
+  int ref_count[REF_ARR_SIZE];
+} ref_array;
+
+void inc_ref_array(uint64 pa) {
+  acquire(&ref_array.lock);
+  ref_array.ref_count[PA2REF_ARR_INDEX(pa)]++;
+  release(&ref_array.lock);
+}
+
+void dec_ref_array(uint64 pa) {
+  acquire(&ref_array.lock);
+  ref_array.ref_count[PA2REF_ARR_INDEX(pa)]--;
+  release(&ref_array.lock);
+}
+
 void
 kinit()
 {
   initlock(&kmem.lock, "kmem");
+  initlock(&ref_array.lock, "ref_array");
   freerange(end, (void*)PHYSTOP);
 }
 
@@ -35,8 +53,10 @@ freerange(void *pa_start, void *pa_end)
 {
   char *p;
   p = (char*)PGROUNDUP((uint64)pa_start);
-  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE)
+  for(; p + PGSIZE <= (char*)pa_end; p += PGSIZE) {
+    // inc_ref_array((uint64)p);
     kfree(p);
+  }
 }
 
 // Free the page of physical memory pointed at by v,
@@ -51,15 +71,20 @@ kfree(void *pa)
   if(((uint64)pa % PGSIZE) != 0 || (char*)pa < end || (uint64)pa >= PHYSTOP)
     panic("kfree");
 
-  // Fill with junk to catch dangling refs.
-  memset(pa, 1, PGSIZE);
+  dec_ref_array((uint64)pa);
+  acquire(&ref_array.lock);
+  if (ref_array.ref_count[PA2REF_ARR_INDEX((uint64)pa)] <= 0) {
+    // Fill with junk to catch dangling refs.
+    memset(pa, 1, PGSIZE);
 
-  r = (struct run*)pa;
+    r = (struct run*)pa;
 
-  acquire(&kmem.lock);
-  r->next = kmem.freelist;
-  kmem.freelist = r;
-  release(&kmem.lock);
+    acquire(&kmem.lock);
+    r->next = kmem.freelist;
+    kmem.freelist = r;
+    release(&kmem.lock);
+  }
+  release(&ref_array.lock);
 }
 
 // Allocate one 4096-byte page of physical memory.
@@ -76,7 +101,12 @@ kalloc(void)
     kmem.freelist = r->next;
   release(&kmem.lock);
 
-  if(r)
+  if(r) {
     memset((char*)r, 5, PGSIZE); // fill with junk
+    acquire(&ref_array.lock);
+    ref_array.ref_count[PA2REF_ARR_INDEX((uint64)r)] = 1;
+    release(&ref_array.lock);
+  }
+
   return (void*)r;
 }
